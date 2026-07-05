@@ -1,0 +1,185 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  line-height: 1.55;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: #070a12;
+  color: #e8edf7;
+  overflow-x: hidden;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0d1424;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #22e3dc55, #1b2236);
+  border-radius: 8px;
+  border: 2px solid #0d1424;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #22e3dc99, #1b2236);
+}
+
+/* 选区 */
+::selection {
+  background: rgba(34, 227, 220, 0.3);
+  color: #ffffff;
+}
+
+@layer components {
+  /* 显示字体（科技感） */
+  .font-display {
+    font-family: "Orbitron", system-ui, sans-serif;
+    letter-spacing: 0.04em;
+  }
+
+  /* 主按钮 */
+  .btn-cyber {
+    @apply relative inline-flex items-center justify-center gap-2 rounded-md border border-cyber/60 bg-cyber/10 px-5 py-2.5 font-mono text-sm font-medium uppercase tracking-wider text-cyber transition-all duration-200 hover:bg-cyber hover:text-void hover:shadow-cyber disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-cyber/10 disabled:hover:text-cyber disabled:hover:shadow-none;
+  }
+
+  .btn-neon {
+    @apply inline-flex items-center justify-center gap-2 rounded-md border border-neon/60 bg-neon/10 px-5 py-2.5 font-mono text-sm font-medium uppercase tracking-wider text-neon transition-all duration-200 hover:bg-neon hover:text-void hover:shadow-neon;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-md border border-ash/30 bg-transparent px-4 py-2.5 font-mono text-xs uppercase tracking-wider text-ash transition-all duration-200 hover:border-cyber/50 hover:text-cyber;
+  }
+
+  /* 卡片 */
+  .card-cyber {
+    @apply relative overflow-hidden rounded-lg border border-cyber/15 bg-abyss/60 backdrop-blur-sm;
+  }
+
+  /* HUD 角标 */
+  .hud-corner {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    border-color: #22e3dc;
+    pointer-events: none;
+  }
+  .hud-corner.tl {
+    top: 12px;
+    left: 12px;
+    border-top: 2px solid;
+    border-left: 2px solid;
+  }
+  .hud-corner.tr {
+    top: 12px;
+    right: 12px;
+    border-top: 2px solid;
+    border-right: 2px solid;
+  }
+  .hud-corner.bl {
+    bottom: 12px;
+    left: 12px;
+    border-bottom: 2px solid;
+    border-left: 2px solid;
+  }
+  .hud-corner.br {
+    bottom: 12px;
+    right: 12px;
+    border-bottom: 2px solid;
+    border-right: 2px solid;
+  }
+
+  /* 文本辅助 */
+  .text-glow-cyber {
+    text-shadow: 0 0 12px rgba(34, 227, 220, 0.55);
+  }
+  .text-glow-neon {
+    text-shadow: 0 0 12px rgba(255, 46, 136, 0.55);
+  }
+
+  /* 数据标签 */
+  .data-tag {
+    @apply inline-flex items-center gap-1 rounded-sm border border-cyber/30 bg-cyber/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-cyber/80;
+  }
+
+  /* 网格背景 */
+  .bg-cyber-grid {
+    background-image: linear-gradient(
+        rgba(34, 227, 220, 0.05) 1px,
+        transparent 1px
+      ),
+      linear-gradient(90deg, rgba(34, 227, 220, 0.05) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  /* 渐隐遮罩 */
+  .mask-fade-y {
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent,
+      black 12%,
+      black 88%,
+      transparent
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent,
+      black 12%,
+      black 88%,
+      transparent
+    );
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  /* 自定义滑块 */
+  .range-cyber {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: linear-gradient(to right, #22e3dc, #1b2236);
+    border-radius: 999px;
+    outline: none;
+  }
+  .range-cyber::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #22e3dc;
+    border: 2px solid #070a12;
+    box-shadow: 0 0 12px rgba(34, 227, 220, 0.7);
+    cursor: pointer;
+  }
+  .range-cyber::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #22e3dc;
+    border: 2px solid #070a12;
+    box-shadow: 0 0 12px rgba(34, 227, 220, 0.7);
+    cursor: pointer;
+  }
+}
