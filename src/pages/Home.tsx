@@ -6,7 +6,6 @@ import {
   BrainCircuit,
   Camera,
   Cpu,
-  Eye,
   FileBarChart2,
   Layers,
   Lock,
@@ -137,17 +136,21 @@ export default function Home() {
               </p>
 
               <div className="mt-8 flex flex-wrap items-center gap-3">
-                <Link to="/scan" className="btn-cyber group">
-                  <Camera size={16} />
-                  启动扫描仪
+                <Link to="/model?demo=1" className="btn-cyber group">
+                  <Box size={16} />
+                  查看建模结果
                   <ArrowRight
                     size={14}
                     className="transition-transform group-hover:translate-x-1"
                   />
                 </Link>
-                <Link to="/model?demo=1" className="btn-ghost">
-                  <Eye size={14} />
-                  查看演示模型
+                <Link to="/scan" className="btn-ghost">
+                  <Camera size={14} />
+                  启动扫描仪
+                </Link>
+                <Link to="/report" className="btn-ghost">
+                  <FileBarChart2 size={14} />
+                  数据报告
                 </Link>
               </div>
 

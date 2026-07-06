@@ -17,14 +17,16 @@ const BODY_RADII: Record<BodyTypePreset, {
   head: number;
   neck: number;
   torso: number;
+  chest: number;
+  waist: number;
   arm: number;
   forearm: number;
   thigh: number;
   calf: number;
 }> = {
-  slim: { head: 0.11, neck: 0.05, torso: 0.16, arm: 0.05, forearm: 0.045, thigh: 0.08, calf: 0.06 },
-  standard: { head: 0.125, neck: 0.06, torso: 0.19, arm: 0.06, forearm: 0.055, thigh: 0.095, calf: 0.07 },
-  athletic: { head: 0.13, neck: 0.07, torso: 0.22, arm: 0.075, forearm: 0.065, thigh: 0.11, calf: 0.08 },
+  slim: { head: 0.11, neck: 0.05, torso: 0.16, chest: 0.17, waist: 0.13, arm: 0.05, forearm: 0.045, thigh: 0.08, calf: 0.06 },
+  standard: { head: 0.125, neck: 0.06, torso: 0.19, chest: 0.20, waist: 0.15, arm: 0.06, forearm: 0.055, thigh: 0.095, calf: 0.07 },
+  athletic: { head: 0.13, neck: 0.07, torso: 0.22, chest: 0.24, waist: 0.17, arm: 0.075, forearm: 0.065, thigh: 0.11, calf: 0.08 },
 };
 
 /** 在两点之间生成一个胶囊体 mesh 的 props */
@@ -34,7 +36,6 @@ function limbProps(a: Landmark, b: Landmark, radius: number) {
   const mid = va.clone().add(vb).multiplyScalar(0.5);
   const dir = vb.clone().sub(va);
   const length = dir.length();
-  // 默认胶囊沿 Y 轴，需要旋转到 dir 方向
   const up = new THREE.Vector3(0, 1, 0);
   const quaternion = new THREE.Quaternion().setFromUnitVectors(up, dir.clone().normalize());
   return {
@@ -51,22 +52,27 @@ interface LimbProps {
   radius: number;
   color?: string;
   wireframe?: boolean;
+  segments?: [number, number];
 }
 
-function Limb({ a, b, radius, color = "#22E3DC", wireframe = false }: LimbProps) {
+function Limb({ a, b, radius, color = "#22E3DC", wireframe = false, segments = [16, 32] }: LimbProps) {
   const props = useMemo(() => limbProps(a, b, radius), [a, b, radius]);
   return (
     <mesh
       position={props.position}
       quaternion={props.quaternion as unknown as THREE.Quaternion}
     >
-      <capsuleGeometry args={[props.radius, props.length, 6, 16]} />
-      <meshStandardMaterial
+      <capsuleGeometry args={[props.radius, props.length, segments[0], segments[1]]} />
+      <meshPhysicalMaterial
         color={color}
         emissive={color}
-        emissiveIntensity={0.35}
-        metalness={0.3}
-        roughness={0.5}
+        emissiveIntensity={0.25}
+        metalness={0.15}
+        roughness={0.35}
+        transmission={0.08}
+        thickness={0.5}
+        clearcoat={0.3}
+        clearcoatRoughness={0.2}
         wireframe={wireframe}
       />
     </mesh>
@@ -82,13 +88,45 @@ interface JointProps {
 function Joint({ position, radius = 0.04, color = "#22E3DC" }: JointProps) {
   return (
     <mesh position={position}>
-      <sphereGeometry args={[radius, 16, 16]} />
-      <meshStandardMaterial
+      <sphereGeometry args={[radius, 32, 32]} />
+      <meshPhysicalMaterial
         color={color}
         emissive={color}
-        emissiveIntensity={0.6}
-        metalness={0.4}
-        roughness={0.3}
+        emissiveIntensity={0.5}
+        metalness={0.3}
+        roughness={0.25}
+        transmission={0.12}
+        thickness={0.3}
+        clearcoat={0.5}
+        clearcoatRoughness={0.1}
+      />
+    </mesh>
+  );
+}
+
+/** 躯干体积块：用椭球体模拟胸/腹 */
+interface TorsoVolumeProps {
+  center: [number, number, number];
+  scale: [number, number, number];
+  color?: string;
+  wireframe?: boolean;
+}
+
+function TorsoVolume({ center, scale, color = "#22E3DC", wireframe = false }: TorsoVolumeProps) {
+  return (
+    <mesh position={center} scale={scale}>
+      <sphereGeometry args={[1, 32, 32]} />
+      <meshPhysicalMaterial
+        color={color}
+        emissive={color}
+        emissiveIntensity={0.15}
+        metalness={0.1}
+        roughness={0.4}
+        transmission={0.06}
+        thickness={0.4}
+        clearcoat={0.2}
+        clearcoatRoughness={0.3}
+        wireframe={wireframe}
       />
     </mesh>
   );
@@ -101,25 +139,20 @@ export default function HumanModel({
   wireframe = false,
   showKeypoints = false,
 }: HumanModelProps) {
-  // 取正面视角作为主骨架
   const front = captures.find((c) => c.angle === "front") ?? captures[0];
   const radii = BODY_RADII[bodyType];
 
-  // 转换为世界坐标 + 身高缩放
   const world = useMemo(() => {
     if (!front) return null;
     const lm = front.worldLandmarks?.length
       ? front.worldLandmarks
       : landmarksToWorld(front.landmarks);
 
-    // 计算实际缩放：以校准身高 / 当前模型高度
     const noseY = lm[POSE_LANDMARKS.NOSE]?.y ?? 0.5;
     const ankleY =
       ((lm[POSE_LANDMARKS.LEFT_ANKLE]?.y ?? 0) +
-        (lm[POSE_LANDMARKS.RIGHT_ANKLE]?.y ?? 0)) /
-      2;
+        (lm[POSE_LANDMARKS.RIGHT_ANKLE]?.y ?? 0)) / 2;
     const modelHeight = Math.max(0.1, noseY - ankleY);
-    // 目标高度（米）：身高 / 100，再 +0.15 头顶余量
     const targetHeight = calibrationHeight / 100 + 0.15;
     const scale = targetHeight / modelHeight;
 
@@ -157,36 +190,66 @@ export default function HumanModel({
   const lAnkle = L(POSE_LANDMARKS.LEFT_ANKLE);
   const rAnkle = L(POSE_LANDMARKS.RIGHT_ANKLE);
 
-  // 颈部中点
   const neck: Landmark = {
     x: (lShoulder.x + rShoulder.x) / 2,
     y: (lShoulder.y + rShoulder.y) / 2,
     z: (lShoulder.z + rShoulder.z) / 2,
   };
-  // 髋部中点
   const hipCenter: Landmark = {
     x: (lHip.x + rHip.x) / 2,
     y: (lHip.y + rHip.y) / 2,
     z: (lHip.z + rHip.z) / 2,
   };
-  // 头顶（鼻子上方约一个头半径）
   const headTop: Landmark = {
     x: head.x,
     y: head.y + radii.head * 1.4,
     z: head.z,
   };
 
+  // 胸部中心（肩中点与髋中点之间偏上 35%）
+  const chestCenter: Landmark = {
+    x: (neck.x + hipCenter.x) / 2 + (neck.x - hipCenter.x) * 0.15,
+    y: (neck.y + hipCenter.y) / 2 + (neck.y - hipCenter.y) * 0.15,
+    z: (neck.z + hipCenter.z) / 2,
+  };
+  // 腹部中心（肩中点与髋中点之间偏下 25%）
+  const bellyCenter: Landmark = {
+    x: (neck.x + hipCenter.x) / 2 - (neck.x - hipCenter.x) * 0.25,
+    y: (neck.y + hipCenter.y) / 2 - (neck.y - hipCenter.y) * 0.25,
+    z: (neck.z + hipCenter.z) / 2,
+  };
+
   return (
     <group>
       {/* 头部 */}
       <mesh position={[head.x, head.y, head.z]}>
-        <sphereGeometry args={[radii.head, 24, 24]} />
-        <meshStandardMaterial
+        <sphereGeometry args={[radii.head, 48, 48]} />
+        <meshPhysicalMaterial
           color="#22E3DC"
           emissive="#22E3DC"
-          emissiveIntensity={0.4}
-          metalness={0.4}
-          roughness={0.4}
+          emissiveIntensity={0.35}
+          metalness={0.2}
+          roughness={0.3}
+          transmission={0.1}
+          thickness={0.6}
+          clearcoat={0.4}
+          clearcoatRoughness={0.15}
+          wireframe={wireframe}
+        />
+      </mesh>
+
+      {/* 头顶延伸（让头更椭圆） */}
+      <mesh position={[headTop.x, headTop.y - radii.head * 0.3, headTop.z]} scale={[1, 0.6, 0.95]}>
+        <sphereGeometry args={[radii.head * 0.85, 32, 32]} />
+        <meshPhysicalMaterial
+          color="#22E3DC"
+          emissive="#22E3DC"
+          emissiveIntensity={0.3}
+          metalness={0.2}
+          roughness={0.3}
+          transmission={0.08}
+          thickness={0.5}
+          clearcoat={0.3}
           wireframe={wireframe}
         />
       </mesh>
@@ -194,13 +257,28 @@ export default function HumanModel({
       {/* 颈 */}
       <Limb a={head} b={neck} radius={radii.neck} wireframe={wireframe} />
 
-      {/* 躯干（肩→髋用胶囊连接，左右各一） */}
+      {/* 躯干主体胶囊 */}
       <Limb a={lShoulder} b={lHip} radius={radii.torso} wireframe={wireframe} />
       <Limb a={rShoulder} b={rHip} radius={radii.torso} wireframe={wireframe} />
       {/* 肩横梁 */}
       <Limb a={lShoulder} b={rShoulder} radius={radii.neck * 1.1} wireframe={wireframe} />
       {/* 髋横梁 */}
       <Limb a={lHip} b={rHip} radius={radii.neck * 1.1} wireframe={wireframe} />
+
+      {/* 胸部体积 */}
+      <TorsoVolume
+        center={[chestCenter.x, chestCenter.y, chestCenter.z]}
+        scale={[radii.chest * 2.2, (neck.y - hipCenter.y) * 0.35, radii.chest * 1.6]}
+        color="#1BC8C2"
+        wireframe={wireframe}
+      />
+      {/* 腹部体积 */}
+      <TorsoVolume
+        center={[bellyCenter.x, bellyCenter.y, bellyCenter.z]}
+        scale={[radii.waist * 2.0, (neck.y - hipCenter.y) * 0.30, radii.waist * 1.5]}
+        color="#1BC8C2"
+        wireframe={wireframe}
+      />
 
       {/* 左臂 */}
       <Limb a={lShoulder} b={lElbow} radius={radii.arm} color="#3FEFE8" wireframe={wireframe} />
@@ -225,12 +303,13 @@ export default function HumanModel({
       <Joint position={[rHip.x, rHip.y, rHip.z]} radius={radii.thigh * 0.9} />
       <Joint position={[lKnee.x, lKnee.y, lKnee.z]} radius={radii.thigh * 0.75} />
       <Joint position={[rKnee.x, rKnee.y, rKnee.z]} radius={radii.thigh * 0.75} />
+      <Joint position={[neck.x, neck.y, neck.z]} radius={radii.neck * 1.2} color="#22E3DC" />
 
       {/* 关键点显示（调试用） */}
       {showKeypoints &&
         world.map((p, i) => (
           <mesh key={i} position={[p.x, p.y, p.z]}>
-            <sphereGeometry args={[0.018, 8, 8]} />
+            <sphereGeometry args={[0.018, 16, 16]} />
             <meshBasicMaterial color="#FFB547" />
           </mesh>
         ))}
@@ -240,11 +319,20 @@ export default function HumanModel({
         position={[hipCenter.x, lAnkle.y - 0.005, hipCenter.z]}
         rotation={[-Math.PI / 2, 0, 0]}
       >
-        <ringGeometry args={[0.25, 0.32, 48]} />
+        <ringGeometry args={[0.25, 0.32, 64]} />
         <meshBasicMaterial color="#22E3DC" transparent opacity={0.35} side={THREE.DoubleSide} />
       </mesh>
 
-      {/* 身高参考线（若显示标注） */}
+      {/* 地面外圈 */}
+      <mesh
+        position={[hipCenter.x, lAnkle.y - 0.006, hipCenter.z]}
+        rotation={[-Math.PI / 2, 0, 0]}
+      >
+        <ringGeometry args={[0.38, 0.40, 64]} />
+        <meshBasicMaterial color="#22E3DC" transparent opacity={0.15} side={THREE.DoubleSide} />
+      </mesh>
+
+      {/* 身高参考线 */}
       <mesh position={[headTop.x + 0.45, (headTop.y + lAnkle.y) / 2, headTop.z]}>
         <boxGeometry args={[0.005, headTop.y - lAnkle.y, 0.005]} />
         <meshBasicMaterial color="#22E3DC" transparent opacity={0.5} />
