@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   CameraOff,
+  Camera as CameraIcon,
   CheckCircle2,
   Loader2,
   RotateCcw,
@@ -51,7 +52,7 @@ export default function Scan() {
   const [capturedAngles, setCapturedAngles] = useState<CaptureAngle[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { videoRef, isReady, error, start, stop } = useCamera({
+  const { videoRef, isReady, error, start, stop, facingMode, toggleCamera, hasMultipleCameras } = useCamera({
     enabled: true,
   });
 
@@ -180,12 +181,15 @@ export default function Scan() {
           ref={containerRef}
           className="relative aspect-[3/4] h-full max-h-[80vh] w-auto max-w-full overflow-hidden rounded-lg border border-cyber/30 bg-black shadow-cyber-lg sm:aspect-video"
         >
-          {/* 视频流（镜像） */}
+          {/* 视频流（前置镜像 / 后置不镜像） */}
           <video
             ref={videoRef}
             playsInline
             muted
-            className="h-full w-full -scale-x-100 object-cover"
+            className={cn(
+              "h-full w-full object-cover",
+              facingMode === "user" && "-scale-x-100"
+            )}
           />
 
           {/* 关键点叠加 */}
@@ -194,7 +198,7 @@ export default function Scan() {
               landmarks={landmarks}
               width={containerSize.w}
               height={containerSize.h}
-              mirror
+              mirror={facingMode === "user"}
             />
           )}
 
@@ -226,11 +230,25 @@ export default function Scan() {
           </div>
 
           {/* 视角指示 */}
-          <div className="absolute left-4 top-4 flex items-center gap-2 rounded-md border border-cyber/30 bg-void/70 px-3 py-1.5 backdrop-blur-md">
-            <ScanLine size={14} className="text-cyber" />
-            <span className="font-mono text-[10px] uppercase tracking-widest text-cyber">
-              VIEW: {PHASE_LABELS[phase]}
-            </span>
+          <div className="absolute left-4 top-4 flex items-center gap-2">
+            <div className="flex items-center gap-2 rounded-md border border-cyber/30 bg-void/70 px-3 py-1.5 backdrop-blur-md">
+              <ScanLine size={14} className="text-cyber" />
+              <span className="font-mono text-[10px] uppercase tracking-widest text-cyber">
+                VIEW: {PHASE_LABELS[phase]}
+              </span>
+            </div>
+            {hasMultipleCameras && (
+              <button
+                onClick={toggleCamera}
+                className="flex items-center gap-1.5 rounded-md border border-cyber/30 bg-void/70 px-3 py-1.5 backdrop-blur-md transition-colors hover:border-cyber hover:bg-void"
+                title={facingMode === "user" ? "切换到后置摄像头" : "切换到前置摄像头"}
+              >
+                <CameraIcon size={14} className="text-cyber" />
+                <span className="font-mono text-[10px] uppercase tracking-widest text-cyber">
+                  {facingMode === "user" ? "前置" : "后置"}
+                </span>
+              </button>
+            )}
           </div>
 
           {/* 进度提示条 */}

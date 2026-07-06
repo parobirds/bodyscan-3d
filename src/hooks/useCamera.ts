@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 interface UseCameraOptions {
-  facingMode?: "user" | "environment";
+  defaultFacingMode?: "user" | "environment";
   enabled?: boolean;
 }
 
@@ -12,21 +12,40 @@ interface UseCameraResult {
   start: () => Promise<void>;
   stop: () => void;
   stream: MediaStream | null;
+  facingMode: "user" | "environment";
+  toggleCamera: () => Promise<void>;
+  hasMultipleCameras: boolean;
 }
 
-/**
- * 摄像头采集 Hook
- * 通过 getUserMedia 获取视频流，挂载到 videoRef 上
- */
 export function useCamera(
   options: UseCameraOptions = {}
 ): UseCameraResult {
-  const { facingMode = "user", enabled = true } = options;
+  const { defaultFacingMode = "user", enabled = true } = options;
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [facingMode, setFacingMode] = useState<"user" | "environment">(
+    defaultFacingMode
+  );
+  const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
+
+  useEffect(() => {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+    const check = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoInputs = devices.filter(
+          (d) => d.kind === "videoinput"
+        );
+        setHasMultipleCameras(videoInputs.length >= 2);
+      } catch {
+        setHasMultipleCameras(false);
+      }
+    };
+    check();
+  }, [stream]);
 
   const stop = useCallback(() => {
     if (streamRef.current) {
@@ -75,6 +94,14 @@ export function useCamera(
     }
   }, [facingMode]);
 
+  const toggleCamera = useCallback(async () => {
+    const next = facingMode === "user" ? "environment" : "user";
+    stop();
+    setFacingMode(next);
+    await new Promise((r) => requestAnimationFrame(() => r(void 0)));
+    await start();
+  }, [facingMode, start, stop]);
+
   useEffect(() => {
     if (enabled) {
       start();
@@ -83,7 +110,17 @@ export function useCamera(
       stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, facingMode]);
+  }, [enabled]);
 
-  return { videoRef, isReady, error, start, stop, stream };
+  return {
+    videoRef,
+    isReady,
+    error,
+    start,
+    stop,
+    stream,
+    facingMode,
+    toggleCamera,
+    hasMultipleCameras,
+  };
 }
